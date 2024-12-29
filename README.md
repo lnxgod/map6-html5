@@ -1,3 +1,7 @@
+Hosted on www.charitycase.net 
+Click the Tesla Logo at the top
+www.charitycase.net/blank
+
 # User Manual: JB4/Lap3 HTML Log Analyzer
 
 This page is an all-in-one tool for analyzing JB4/Lap3 logs by:
