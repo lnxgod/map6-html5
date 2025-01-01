@@ -25,9 +25,20 @@
       text-align: center;
       cursor: pointer;
       margin-bottom: 10px;
+      position: relative; /* ensure the hidden file input can cover entire area */
+      overflow: hidden;
     }
     #uploadArea.hover {
       background-color: #f0f0f0;
+    }
+    #fileInput {
+      position: absolute; 
+      top: 0; 
+      left: 0; 
+      width: 100%; 
+      height: 100%; 
+      opacity: 0; 
+      cursor: pointer;
     }
     .axis-settings {
       margin-bottom: 15px;
@@ -52,39 +63,119 @@
     <input 
       type="file" 
       id="fileInput" 
-      accept=".csv" 
-      style="position: absolute; opacity: 0; width:100%; height:60px; cursor: pointer;"
+      accept=".csv"
     />
   </div>
 
-  <!-- Sensitivity controls & re-scan button -->
+  <!-- Re-scan log button -->
   <div class="row">
-    <div class="col-md-3 mb-3">
-      <label for="fourCylSens" class="form-label">4Cyl Sensitivity:</label>
-      <input 
-        type="number" 
-        class="form-control" 
-        id="fourCylSens" 
-        value="3.5" 
-        min="0" 
-        max="20" 
-        step="0.1"
-      />
-    </div>
-    <div class="col-md-3 mb-3">
-      <label for="sixCylSens" class="form-label">6Cyl Sensitivity:</label>
-      <input 
-        type="number" 
-        class="form-control" 
-        id="sixCylSens" 
-        value="6.5" 
-        min="0" 
-        max="20" 
-        step="0.1"
-      />
-    </div>
     <div class="col-md-3 d-flex align-items-end">
       <button id="rescanButton" class="btn btn-primary w-100">Re-Scan Log</button>
+    </div>
+  </div>
+
+  <!-- Advanced Settings Collapsible -->
+  <button 
+    class="btn btn-secondary mb-3" 
+    type="button" 
+    data-bs-toggle="collapse" 
+    data-bs-target="#advancedSettings" 
+    aria-expanded="false" 
+    aria-controls="advancedSettings"
+  >
+    Show/Hide Advanced Settings
+  </button>
+
+  <div class="collapse" id="advancedSettings">
+    <div class="card card-body">
+      <p class="text-muted">
+        <strong>Note:</strong> After tweaking these parameters, please click “Re-Scan Log” to re-run the checks.
+      </p>
+      <div class="row">
+        <!-- Timing Deviation Sensitivity -->
+        <div class="col-md-3 mb-3">
+          <label for="fourCylSens" class="form-label">4Cyl Sensitivity:</label>
+          <input 
+            type="number" 
+            class="form-control" 
+            id="fourCylSens" 
+            value="3.5" 
+            min="0" 
+            max="20" 
+            step="0.1"
+          />
+        </div>
+        <div class="col-md-3 mb-3">
+          <label for="sixCylSens" class="form-label">6Cyl Sensitivity:</label>
+          <input 
+            type="number" 
+            class="form-control" 
+            id="sixCylSens" 
+            value="6.5" 
+            min="0" 
+            max="20" 
+            step="0.1"
+          />
+        </div>
+
+        <!-- IAT Threshold -->
+        <div class="col-md-3 mb-3">
+          <label for="iatThreshold" class="form-label">IAT Threshold (°F):</label>
+          <input 
+            type="number" 
+            class="form-control" 
+            id="iatThreshold" 
+            value="118" 
+            min="0" 
+            max="200" 
+            step="1"
+          />
+        </div>
+
+        <!-- HPFP Threshold -->
+        <div class="col-md-3 mb-3">
+          <label for="hpfpThreshold" class="form-label">HPFP Threshold:</label>
+          <input 
+            type="number" 
+            class="form-control" 
+            id="hpfpThreshold" 
+            value="10" 
+            min="0" 
+            max="100" 
+            step="1"
+          />
+        </div>
+      </div>
+
+      <div class="row">
+        <!-- E85 Check -->
+        <div class="col-md-3 mb-3">
+          <div class="form-check" style="margin-top: 32px;">
+            <input 
+              class="form-check-input" 
+              type="checkbox" 
+              id="e85Check" 
+            />
+            <label class="form-check-label" for="e85Check">
+              E85? (Ignore Meth Flow Issues)
+            </label>
+          </div>
+        </div>
+
+        <!-- Manual Car Check -->
+        <div class="col-md-3 mb-3">
+          <div class="form-check" style="margin-top: 32px;">
+            <input 
+              class="form-check-input" 
+              type="checkbox" 
+              id="manualCheck" 
+            />
+            <label class="form-check-label" for="manualCheck">
+              Manual Car? (Ignore Throttle Closure)
+            </label>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -189,8 +280,7 @@
       reader.onload = (e) => {
         const lines = e.target.result.split(/\r\n|\n/);
         // Basic check: skip first ~5 lines if needed, handle columns etc.
-        // Adjust as your CSV structure demands. 
-        // The original python code used rows[5:] and 37 columns.
+        // Adjust as your CSV structure demands.
         const rows = lines.map(line => line.split(','));
         if (rows.length < 10) {
           alert("CSV file too short or invalid.");
@@ -235,8 +325,7 @@
       mythrottle, mypedal, myign1, myign2, myign3, myign4, myign5, myign6,
       myrpm, mytimestamp, afr2, mph, fourCylSens, sixCylSens
     }) {
-      // timingDeviationMessages (global array)
-      // timingCrashEvents (global array)
+      // If AFR2 > 10 => 6-cylinder logic, else => 4-cylinder logic
       if (afr2 > 10) {
         // 6-cylinder mode
         if (mythrottle > 95 && mypedal > 96) {
@@ -298,10 +387,11 @@
       return output;
     }
 
-    function checkHpfp({ mythrottle, mypedal, myrpm, mytimestamp, myfp_h }) {
+    // Compare HPFP to user-provided threshold
+    function checkHpfp({ mythrottle, mypedal, myrpm, mytimestamp, myfp_h, hpfpThreshold }) {
       let output = "";
       if (myfp_h === 0) return output;
-      if (mythrottle > 95 && mypedal > 90 && myfp_h < 10) {
+      if (mythrottle > 95 && mypedal > 90 && myfp_h < hpfpThreshold) {
         output +=
           `HPFP Issue Detected -- Consider using less E85. ` +
           `Timestamp: ${mytimestamp}, RPM: ${myrpm}, HPFP: ${myfp_h}\n`;
@@ -309,8 +399,11 @@
       return output;
     }
 
-    function checkThrottleClose({ mythrottle, mypedal, myrpm, myboost, myboost2, mytimestamp }) {
-      // throttlecloseEvents (global)
+    // Skip throttle-close checks if “ignoreThrottleClose” is true
+    function checkThrottleClose({ 
+      mythrottle, mypedal, myrpm, myboost, myboost2, mytimestamp, ignoreThrottleClose 
+    }) {
+      if (ignoreThrottleClose) return;
       if (mypedal > 95 && myrpm > 4000 && mythrottle < 85) {
         let msg =
           `Throttle Closure Detected (Consider paddle shifting instead). ` +
@@ -324,8 +417,12 @@
       }
     }
 
-    function checkMethFlow({ mythrottle, mypedal, myrpm, myboost, mytimestamp, mymeth, mytriggercount }) {
+    // Skip meth-flow checks if “ignoreMethFlow” is true
+    function checkMethFlow({ 
+      mythrottle, mypedal, myrpm, myboost, mytimestamp, mymeth, mytriggercount, ignoreMethFlow 
+    }) {
       let output = "";
+      if (ignoreMethFlow) return output; // user wants to ignore meth flow issues (e.g. E85)
       if (mymeth === 0) return output;
       if (mypedal > 95 && mymeth < 90 && mytriggercount > 1 && myboost > 10) {
         output +=
@@ -345,9 +442,10 @@
       return output;
     }
 
-    function checkIat({ myrpm, mythrottle, mypedal, myiat }) {
+    // Updated to use an adjustable iatThreshold instead of hard-coded 118
+    function checkIat({ myrpm, mythrottle, mypedal, myiat, iatThreshold }) {
       let output = "";
-      if (myrpm > 2500 && mythrottle > 95 && myiat > 118) {
+      if (myrpm > 2500 && mythrottle > 95 && myiat > iatThreshold) {
         output +=
           `Heat Soak Detected! Consider using methanol injection, a better FMIC, ` +
           `or allowing the car to cool. RPM: ${myrpm}, IAT: ${myiat}\n`;
@@ -358,8 +456,16 @@
     /***********************************************************
      * Re-implement run_all_checks in JavaScript
      ***********************************************************/
-    function runAllChecks(df, fourCylSens = 3.5, sixCylSens = 6.5) {
-      // clear global arrays
+    function runAllChecks(
+      df, 
+      fourCylSens = 3.5, 
+      sixCylSens = 6.5, 
+      iatThreshold = 118, 
+      hpfpThreshold = 10,
+      ignoreMethFlow = false,
+      ignoreThrottleClose = false
+    ) {
+      // Clear global arrays
       timingDeviationMessages = [];
       timingCrashEvents = [];
       throttlecloseEvents = [];
@@ -370,7 +476,6 @@
       let boostdevOut = "Boost Deviations\n--------------------\n";
       let trimsOut = "Fuel Trims\n-------------------------\n";
 
-      // We'll build up strings, then we can do "is it more than just the header?"
       let iatBuffer = iatOut;
       let hpfpBuffer = hpfpOut;
       let methflowBuffer = methflowOut;
@@ -402,7 +507,13 @@
         const mph       = row.mph;
 
         // iat
-        const tmpIat = checkIat({ myrpm: rpm, mythrottle: throttle, mypedal: pedal, myiat: iat });
+        const tmpIat = checkIat({
+          myrpm: rpm, 
+          mythrottle: throttle, 
+          mypedal: pedal, 
+          myiat: iat, 
+          iatThreshold
+        });
         if (tmpIat.trim().length > 0) {
           iatBuffer += tmpIat;
         }
@@ -431,7 +542,8 @@
           mypedal: pedal, 
           myrpm: rpm, 
           mytimestamp: timestamp, 
-          myfp_h: fp_h
+          myfp_h: fp_h,
+          hpfpThreshold
         });
         if (tmpHpfp.trim().length > 0) {
           hpfpBuffer += tmpHpfp;
@@ -444,7 +556,8 @@
           myrpm: rpm, 
           myboost: boost,
           myboost2: boost2,
-          mytimestamp: timestamp
+          mytimestamp: timestamp,
+          ignoreThrottleClose
         });
 
         // meth
@@ -455,7 +568,8 @@
           myboost: boost,
           mytimestamp: timestamp,
           mymeth: meth,
-          mytriggercount: triggercount
+          mytriggercount: triggercount,
+          ignoreMethFlow
         });
         if (tmpMeth.trim().length > 0) {
           methflowBuffer += tmpMeth;
@@ -500,7 +614,8 @@
           "\nTiming Crash Summary\n----------------\n" +
           `Detected ${crashCount} instance(s) of timing crashing to zero.\n` +
           `Lowest mph observed: ${minMph}, highest mph observed: ${maxMph}.\n` +
-          "Possible traction control or real ignition issue.\n";
+          "Possible traction issue or could be too aggressive of a map. " +
+          "Try a lower map if you're concerned but usually not an issue.\n";
       }
 
       let throttleclose_summary = "";
@@ -591,8 +706,6 @@
       scale1, scale2, scale3, scale4,
       df
     }) {
-      // df is globalData
-      // Plotly traces
       const traces = [];
 
       if (axis1 && axis1.length > 0) {
@@ -718,16 +831,29 @@
       doRunChecks();
     });
 
-    // The function that runs the entire check logic
     function doRunChecks() {
       if (!globalData || globalData.length === 0) {
         document.getElementById('reportOutput').textContent = "No file yet.";
         return;
       }
+      // Collect advanced settings
       const fourCyl = parseFloat(document.getElementById('fourCylSens').value) || 3.5;
       const sixCyl = parseFloat(document.getElementById('sixCylSens').value) || 6.5;
+      const iatThreshold = parseFloat(document.getElementById('iatThreshold').value) || 118;
+      const hpfpThreshold = parseFloat(document.getElementById('hpfpThreshold').value) || 10;
+      const ignoreMethFlow = document.getElementById('e85Check').checked;
+      const ignoreThrottleClose = document.getElementById('manualCheck').checked;
 
-      const { logLengthWarning, finalReport } = runAllChecks(globalData, fourCyl, sixCyl);
+      const { logLengthWarning, finalReport } = runAllChecks(
+        globalData, 
+        fourCyl, 
+        sixCyl, 
+        iatThreshold, 
+        hpfpThreshold, 
+        ignoreMethFlow,
+        ignoreThrottleClose
+      );
+
       document.getElementById('logLengthWarning').textContent = logLengthWarning;
       document.getElementById('reportOutput').textContent = finalReport;
     }
@@ -823,11 +949,14 @@
       hoverStatus.textContent = linesInfo.join(" | ");
     });
 
-    // If user moves away from a point
     graphOutput.addEventListener('plotly_unhover', () => {
       hoverStatus.textContent = "Hover over the chart to see values.";
     });
-
   </script>
+
+  <!-- Bootstrap JS (for collapse functionality) -->
+  <script 
+    src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"
+  ></script>
 </body>
 </html>
